@@ -1,8 +1,13 @@
+mod auth;
 mod routes;
 mod utils;
+use crate::auth::*;
 use crate::routes::*;
-use axum::routing::get;
 use axum::Router;
+use axum::{
+    middleware,
+    routing::{get, patch, post},
+};
 use axum_prometheus::PrometheusMetricLayer;
 use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
@@ -13,7 +18,6 @@ use tracing_subscriber::util::SubscriberInitExt;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
-
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -29,7 +33,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?;
     let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
     let app = Router::new()
-        .route("/:id", get(redirect))
+        .route("/create", post(create_link))
+        .route(
+            "/:id",
+            patch(update_link)
+                .route_layer(middleware::from_fn_with_state(db.clone(), auth))
+                .get(redirect),
+        )
+        .route("/:id/stats", get(get_link_statistics))
+        .route_layer(middleware::from_fn_with_state(db.clone(), auth))
         .route("/metrics", get(|| async move { metric_handle.render() }))
         .route("/health", get(health))
         .layer(TraceLayer::new_for_http())

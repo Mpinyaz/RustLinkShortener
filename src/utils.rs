@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use metrics::increment_counter;
+use metrics::counter;
 
 pub fn internal_error<E>(err: E) -> (StatusCode, String)
 where
@@ -8,7 +8,8 @@ where
     tracing::error!("{}", err);
 
     let labels = [("error", format!("{}!", err))];
-    increment_counter("request_error", &labels);
+    let errcnt = counter!("request_error", &labels);
+    errcnt.increment(1);
     (
         StatusCode::INTERNAL_SERVER_ERROR,
         "Internal Server Error".to_string(),

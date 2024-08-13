@@ -1,5 +1,5 @@
 .env
-
+migrations/
 target/
-
+db/
 .idea/
